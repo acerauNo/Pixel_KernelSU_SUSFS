@@ -1,7 +1,8 @@
 {
   "include": [
     {
-      "repo": "android-gs-bluejay-5.10-android13"
+      "repo": "android-gs-bluejay-5.10-android13",
+      "codename": "bluejay"
     }
   ]
 }
