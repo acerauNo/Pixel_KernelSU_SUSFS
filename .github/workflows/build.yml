@@ -207,11 +207,13 @@ jobs:
       uses: ./.github/actions/bbg
 
     - name: Setup netfilter/ipset options
+      if: ${{ !contains(inputs.repo, '5.10') && !contains(inputs.repo, '5.15') && !contains(inputs.repo, '5.4') && !contains(inputs.repo, '4.19') }}
       uses: ./.github/actions/netfilter-ipset
       with:
         kernel_version: ${{ env.KERNEL_VERSION }}
 
     - name: Setup BBRv3
+      if: ${{ !contains(inputs.repo, '5.10') && !contains(inputs.repo, '5.15') && !contains(inputs.repo, '5.4') && !contains(inputs.repo, '4.19') }}
       uses: ./.github/actions/bbr
       with:
         kernel_version: ${{ env.KERNEL_VERSION }}
