@@ -1,7 +1,7 @@
 {
   "include": [
     {
-      "repo": "android-gs-bluejay-6.1-android16"
+      "repo": "android-gs-bluejay-5.10-android13"
     }
   ]
 }
