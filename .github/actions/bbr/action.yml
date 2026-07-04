@@ -11,19 +11,32 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Extract BBG Version
+    - name: Apply BBRv3 Patch
       shell: bash
       working-directory: ${{ github.workspace }}/kernel/aosp
       run: |
-        cp "$GITHUB_WORKSPACE/kernel_patches/bbrv3-${inputs.android_version}-${inputs.kernel_version}.patch" $GITHUB_WORKSPACE/kernel/aosp
-        patch -p1 < "bbrv3-${inputs.android_version}-${inputs.kernel_version}.patch"
+        AV="${ANDROID_VERSION:-}"
+        KV="${KERNEL_VERSION:-}"
+        # Patches live in kernel_patches/bbr/ (subdir), named bbrv3-<android>-<kernel>.patch
+        PATCH="$GITHUB_WORKSPACE/kernel_patches/bbr/bbrv3-${AV}-${KV}.patch"
+        if [ ! -f "$PATCH" ]; then
+          echo "WARNING: $PATCH not found — skipping BBRv3"
+          echo "BBR_SKIP=1" >> $GITHUB_ENV
+          exit 0
+        fi
+        cp "$PATCH" .
+        if ! patch -p1 < "bbrv3-${AV}-${KV}.patch"; then
+          echo "WARNING: BBRv3 patch did not apply cleanly — skipping BBRv3"
+          echo "BBR_SKIP=1" >> $GITHUB_ENV
+          exit 0
+        fi
 
     - name: Fix modules.bzl
       shell: bash
       if: false
       working-directory: ${{ github.workspace }}/kernel/aosp
       run: |
-        if [ "$inputs.kernel_version" == "6.1" ]; then
+        if [ "$KERNEL_VERSION" == "6.1" ]; then
           mods_file=modules.bzl
           for m in "net/ipv4/tcp_bic.ko" "net/ipv4/tcp_htcp.ko" "net/ipv4/tcp_westwood.ko"; do
             grep -q "'$m'" "$mods_file" && continue
