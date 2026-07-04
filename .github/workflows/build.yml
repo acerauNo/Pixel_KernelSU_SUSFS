@@ -245,7 +245,7 @@ jobs:
         # build.yml is a reusable workflow — matrix context isn't available here, use inputs.repo.
         CODENAME=$(echo "${{ inputs.repo }}" | sed -E 's/^android-gs-([a-z]+)-.*/\1/')
         echo "Resolved codename: $CODENAME (from repo ${{ inputs.repo }})"
-        build_${CODENAME}.sh --config=release --stamp --defconfig_fragment=//aosp:arch/arm64/configs/wild_gki.fragment || exit 1
+        ./build_${CODENAME}.sh --config=release --stamp --defconfig_fragment=//aosp:arch/arm64/configs/wild_gki.fragment || exit 1
 
     - name: Create Bootimgs Folder and Build Boot Images
       if: false
