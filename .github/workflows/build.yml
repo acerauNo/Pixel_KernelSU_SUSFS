@@ -347,8 +347,26 @@ jobs:
 
     - name: Prepare AnyKernel3 Zip
       run: |
-        # Copy Image from normal build locations
-        cp "$GITHUB_WORKSPACE/kernel/out/$CODENAM/dist/Image.lz4" "$GITHUB_WORKSPACE/AnyKernel3/Image.lz4"
+        # Copy the compiled kernel Image.lz4 into AnyKernel3.
+        # Bazel builds output to out/<android>-<kernel>/dist/ or bazel-bin/aosp/kernel_aarch64/.
+        # Legacy make builds (5.10/5.15) output to out/mixed/dist/.
+        # Try each known location; fail only if none exist.
+        SRC=""
+        for P in \
+          "$GITHUB_WORKSPACE/kernel/out/mixed/dist/Image.lz4" \
+          "$GITHUB_WORKSPACE/kernel/out/$ANDROID_VERSION-$KERNEL_VERSION/dist/Image.lz4" \
+          "$GITHUB_WORKSPACE/kernel/bazel-bin/aosp/kernel_aarch64/Image.lz4" \
+          "$GITHUB_WORKSPACE/kernel/out/dist/Image.lz4" ; do
+          if [ -f "$P" ]; then SRC="$P"; break; fi
+        done
+        if [ -z "$SRC" ]; then
+          echo "ERROR: Image.lz4 not found in any known build output location:" >&2
+          ls -la "$GITHUB_WORKSPACE/kernel/out/" 2>/dev/null || true
+          find "$GITHUB_WORKSPACE/kernel/out" -name 'Image.lz4' 2>/dev/null | head -20 >&2
+          exit 1
+        fi
+        echo "Using kernel image: $SRC"
+        cp "$SRC" "$GITHUB_WORKSPACE/AnyKernel3/Image.lz4"
 
     - name: Scan and collect patch rejects
       id: scan
