@@ -28,7 +28,11 @@ on:
 jobs:
   build-gki:
     name: "${{ inputs.repo }}"
-    runs-on: ubuntu-latest
+    # Legacy 5.10/5.15/5.4/4.19 kernels must build on ubuntu-22.04 (glibc 2.35).
+    # ubuntu-latest (24.04, glibc 2.39) introduces __isoc23_strtol/strtoul/strtoull symbols
+    # that legacy kernels' strtol implementations don't provide → undefined symbol linker errors.
+    # Detect legacy kernel from the manifest repo name (e.g. android-gs-bluejay-5.10-android13).
+    runs-on: ${{ (contains(inputs.repo, '5.10') || contains(inputs.repo, '5.15') || contains(inputs.repo, '5.4') || contains(inputs.repo, '4.19')) && 'ubuntu-22.04' || 'ubuntu-latest' }}
     timeout-minutes: 60
 
     steps:
