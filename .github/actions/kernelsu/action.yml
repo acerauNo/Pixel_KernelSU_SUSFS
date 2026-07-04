@@ -13,11 +13,20 @@ runs:
       shell: bash
       working-directory: ${{ github.workspace }}/kernel/aosp
       run: |
-        # Clone the repository
-        curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/dev/kernel/setup.sh" | bash -s dev
-        
+        # Pin KSU-Next to the commit the combined KSUN+SUSFS patch was generated for.
+        # The wild/archived combined patch (ksun-0daf55582-susfs-v2.1.0-e259e7d6.patch) targets
+        # KSU-Next commit 0daf55582. Checking out dev-latest leaves the source half-patched on 5.10.
+        # Allow override via ksu_commit input; default to the pinned compat commit.
+        KSU_PIN="${{ inputs.ksu_commit }}"
+        if [ -z "$KSU_PIN" ]; then
+          KSU_PIN="0daf555826d83a0f68ba63d503b4a6e95ff80538"
+        fi
+        echo "Pinning KernelSU-Next to commit: $KSU_PIN"
+        # setup.sh does a full clone (no --depth) and accepts a commit/tag as $1
+        curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/dev/kernel/setup.sh" | bash -s "$KSU_PIN"
+
         cd KernelSU-Next/kernel
-        
+
         COMMITS_COUNT=$(/usr/bin/git rev-list --count HEAD)
         BASE_VERSION=30000
         KSU_VERSION=$(expr $COMMITS_COUNT "+" $BASE_VERSION)
