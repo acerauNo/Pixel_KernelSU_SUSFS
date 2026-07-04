@@ -85,5 +85,43 @@ runs:
       shell: bash
       working-directory: ${{ github.workspace }}/kernel/aosp/KernelSU-Next
       run: |
-        cp ${{ github.workspace }}/kernel_patches/wild/ksun-0daf55582-susfs-v2.1.0-e259e7d6.patch ./
-        patch -p1 < ksun-0daf55582-susfs-v2.1.0-e259e7d6.patch
+        set -e
+        KP="${{ github.workspace }}/kernel_patches"
+        AV="${ANDROID_VERSION:-}"
+        KV="${KERNEL_VERSION:-}"
+        KSU_SHORT="${KSU_COMMIT:-}"
+        # Gather every combined KSUN+SUSFS patch across wild/ and wild/archived/.
+        mapfile -t ALL < <(ls "$KP"/wild/ksun-*-susfs-*.patch "$KP"/wild/archived/ksun-*-susfs-*.patch 2>/dev/null || true)
+        echo "Found ${#ALL[@]} combined KSUN+SUSFS patch candidate(s)"
+        for f in "${ALL[@]}"; do echo "  candidate: $(basename "$f")"; done
+
+        PATCH=""
+        # 1) Prefer a patch whose filename embeds the current KSU commit (exact match).
+        if [ -z "$PATCH" ] && [ -n "$KSU_SHORT" ]; then
+          for f in "${ALL[@]}"; do
+            basename "$f" | grep -q "$KSU_SHORT" && { PATCH="$f"; break; }
+          done
+        fi
+        # 2) Prefer a patch tagged for THIS android version + kernel version (e.g. a13-5.10).
+        if [ -z "$PATCH" ] && [ -n "$AV" ] && [ -n "$KV" ]; then
+          TAG=$(echo "$AV" | sed 's/android/a/')  # android13 -> a13
+          for f in "${ALL[@]}"; do
+            basename "$f" | grep -qi "${TAG}-${KV}" && { PATCH="$f"; break; }
+          done
+        fi
+        # 3) Fallback to the GENERIC patch (no aNN-K.K tag in filename) — intended for
+        #    kernels WildKernels didn't ship a version-specific combined patch for.
+        if [ -z "$PATCH" ]; then
+          for f in "${ALL[@]}"; do
+            basename "$f" | grep -qiE 'a[0-9]+-[0-9]+\.[0-9]+' && continue
+            PATCH="$f"; break
+          done
+        fi
+
+        if [ -z "$PATCH" ]; then
+          echo "WARNING: no combined KSUN+SUSFS patch found — skipping (base SUSFS patch already applied)"
+          exit 0
+        fi
+        echo "Using combined KSUN+SUSFS patch: $(basename "$PATCH")"
+        cp "$PATCH" ./
+        patch -p1 < "$(basename "$PATCH")" || { echo "WARNING: combined patch did not apply cleanly — continuing with base SUSFS only"; true; }
