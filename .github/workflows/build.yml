@@ -245,7 +245,15 @@ jobs:
         # build.yml is a reusable workflow — matrix context isn't available here, use inputs.repo.
         CODENAME=$(echo "${{ inputs.repo }}" | sed -E 's/^android-gs-([a-z]+)-.*/\1/')
         echo "Resolved codename: $CODENAME (from repo ${{ inputs.repo }})"
-        ./build_${CODENAME}.sh --config=release --stamp --defconfig_fragment=//aosp:arch/arm64/configs/wild_gki.fragment || exit 1
+        # 6.1+ kernels use Bazel build system and accept --config/--stamp/--defconfig_fragment flags.
+        # 5.10/5.15 (legacy) kernels use make-based build_slider.sh which does NOT understand Bazel flags —
+        # the fragment was already copied into the tree above, so call the build script with no extra args.
+        if [[ "$KERNEL_VERSION" == "6.1" || "$KERNEL_VERSION" == "6.6" || "$KERNEL_VERSION" == "6.12" ]]; then
+          ./build_${CODENAME}.sh --config=release --stamp --defconfig_fragment=//aosp:arch/arm64/configs/wild_gki.fragment || exit 1
+        else
+          # Legacy make build: fragment already at aosp/arch/arm64/configs/wild_gki.fragment, build script picks it up.
+          ./build_${CODENAME}.sh || exit 1
+        fi
 
     - name: Create Bootimgs Folder and Build Boot Images
       if: false
