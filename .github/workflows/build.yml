@@ -127,8 +127,21 @@ jobs:
         [[ -n "$EXTRACTED" ]] && SUBLEVEL="$EXTRACTED"
 
         KERNEL_VERSION="$VERSION.$PATCHLEVEL"
-        if [[ "$KERNEL_VERSION" == "6.1" ]]; then
-          ANDROID_VERSION="android14"
+        # Derive ANDROID_VERSION from the manifest repo name (e.g. android-gs-bluejay-5.10-android13)
+        # Falls back to kernel-version mapping for repos without an androidN token.
+        REPO_NAME="${{ inputs.repo }}"
+        ANDROID_VERSION=$(echo "$REPO_NAME" | grep -oE 'android[0-9]+' | tail -1)
+        if [[ -z "$ANDROID_VERSION" ]]; then
+          case "$KERNEL_VERSION" in
+            "5.4")  ANDROID_VERSION="android12" ;;
+            "4.19") ANDROID_VERSION="android12" ;;
+            "5.10") ANDROID_VERSION="android13" ;;
+            "5.15") ANDROID_VERSION="android13" ;;
+            "6.1")  ANDROID_VERSION="android14" ;;
+            "6.6")  ANDROID_VERSION="android15" ;;
+            "6.12") ANDROID_VERSION="android16" ;;
+            *)      ANDROID_VERSION="android14" ;;
+          esac
         fi
 
         echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
