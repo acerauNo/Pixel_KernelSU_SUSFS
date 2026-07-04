@@ -104,13 +104,12 @@ runs:
         fi
         # 2) Prefer a patch tagged for THIS android version + kernel version (e.g. a13-5.10).
         if [ -z "$PATCH" ] && [ -n "$AV" ] && [ -n "$KV" ]; then
-          TAG=$(echo "$AV" | sed 's/android/a/')  # android13 -> a13
+          TAG=$(echo "$AV" | sed 's/android/a/')
           for f in "${ALL[@]}"; do
             basename "$f" | grep -qi "${TAG}-${KV}" && { PATCH="$f"; break; }
           done
         fi
-        # 3) Fallback to the GENERIC patch (no aNN-K.K tag in filename) — intended for
-        #    kernels WildKernels didn't ship a version-specific combined patch for.
+        # 3) Fallback to the GENERIC patch (no aNN-K.K tag in filename).
         if [ -z "$PATCH" ]; then
           for f in "${ALL[@]}"; do
             basename "$f" | grep -qiE 'a[0-9]+-[0-9]+\.[0-9]+' && continue
@@ -122,6 +121,20 @@ runs:
           echo "WARNING: no combined KSUN+SUSFS patch found — skipping (base SUSFS patch already applied)"
           exit 0
         fi
-        echo "Using combined KSUN+SUSFS patch: $(basename "$PATCH")"
+
+        # IMPORTANT: The combined patch is pinned to a specific KSU-Next commit (embedded in filename).
+        # If our checked-out KSU-Next commit doesn't match, applying it produces rejects that leave
+        # the source tree half-patched and break the build. Dry-run first; only apply if it applies cleanly.
         cp "$PATCH" ./
-        patch -p1 < "$(basename "$PATCH")" || { echo "WARNING: combined patch did not apply cleanly — continuing with base SUSFS only"; true; }
+        PATCHFILE="$(basename "$PATCH")"
+        echo "Dry-run combined patch: $PATCHFILE"
+        if patch -p1 --dry-run < "$PATCHFILE" >/tmp/ksusfs_dryrun.log 2>&1; then
+          patch -p1 < "$PATCHFILE"
+          echo "Combined KSUN+SUSFS patch applied cleanly"
+        else
+          echo "WARNING: combined KSUN+SUSFS patch ($PATCHFILE) does not apply cleanly against KSU-Next @ $KSU_SHORT — skipping (KSU-Next dev has native SUSFS integration; base SUSFS patch already applied)"
+          echo "--- dry-run rejects ---"
+          grep -E "FAILED|Hunk" /tmp/ksusfs_dryrun.log | head -20 || true
+          # Revert any partial application (dry-run should mean none, but be safe)
+          patch -p1 -R < "$PATCHFILE" >/dev/null 2>&1 || true
+        fi
