@@ -8,19 +8,28 @@ runs:
       shell: bash
       working-directory: ${{ github.workspace }}/kernel
       run: |
+        # BBG expects aosp/security/ to exist; some kernel trees (e.g. android13-5.10) don't match.
+        # Soft-fail instead of hard-failing the whole build.
+        if [ ! -d "aosp/security" ]; then
+          echo "WARNING: aosp/security/ not found in this kernel tree — BBG is not compatible with this kernel, skipping"
+          echo "BBG_SKIP=1" >> $GITHUB_ENV
+          exit 0
+        fi
         wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash
-    
+
     - name: Configure Baseband Guard
+      if: ${{ env.BBG_SKIP != '1' }}
       shell: bash
       working-directory: ${{ github.workspace }}/kernel
       run: |
         # Add BBG to defconfig
         echo "CONFIG_BBG=y" >> "${{ github.workspace }}/wild_gki.fragment"
-        
+
         # Modify security Kconfig to include baseband_guard in LSM
         sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/selinux/selinux,baseband_guard/ } }' aosp/security/Kconfig
-    
+
     - name: Verify BBG Installation
+      if: ${{ env.BBG_SKIP != '1' }}
       shell: bash
       working-directory: ${{ github.workspace }}/kernel
       run: |
@@ -31,8 +40,9 @@ runs:
           echo "✗ FAILED: baseband_guard not found in aosp/security/Kconfig"
           exit 1
         fi
-    
+
     - name: Extract BBG Version
+      if: ${{ env.BBG_SKIP != '1' }}
       shell: bash
       working-directory: ${{ github.workspace }}/kernel/Baseband-guard
       run: |
